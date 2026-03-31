@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Logs
 logs
 *.log
@@ -137,3 +138,49 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+=======
+# Dependencies
+node_modules/
+logs/test-report/
+logs/test-results.json
+
+# Next.js
+.next/
+out/
+
+# Environment files — NEVER commit these
+.env
+.env.local
+.env.production
+.env.development
+
+# Prisma
+prisma/dev.db
+.prisma/
+
+# Logs — kept locally, never in git
+logs/
+*.log
+
+# Build artifacts
+dist/
+.scripts-build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+>>>>>>> 47e2789 (Initial changes)

@@ -1,0 +1,42 @@
+{
+  "name": "@curatedmcp/auditor",
+  "version": "1.0.0",
+  "description": "Scan your machine for MCP servers and flag security risks",
+  "bin": {
+    "mcp-audit": "dist/cli.js"
+  },
+  "main": "./dist/cli.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/cli.ts",
+    "start": "node dist/cli.js"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "mcp",
+    "security",
+    "audit",
+    "claude",
+    "cursor",
+    "model-context-protocol"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/curatedmcp/mcp-auditor.git"
+  },
+  "homepage": "https://curatedmcp.com/certified"
+}
