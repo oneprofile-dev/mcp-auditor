@@ -71,8 +71,69 @@ export async function printReport(report: AuditReport): Promise<void> {
     console.log();
   }
 
-  console.log(c.dim("Learn more: https://curatedmcp.com/certified"));
+  // Upgrade prompt — shown when HIGH risks exist and no key configured
+  const licenseKey = process.env.CURATEDMCP_KEY ?? process.env.MCP_AUDITOR_KEY;
+  if (report.high.length > 0 && !licenseKey) {
+    console.log(c.dim("─".repeat(50)));
+    console.log(
+      c.yellow.bold("  ⚡ Auditor Pro") +
+        c.dim(" — get weekly email alerts for new risks")
+    );
+    console.log(
+      c.dim("  Set up automated monitoring: ") +
+        c.cyan("https://curatedmcp.com/auditor#pro")
+    );
+    console.log(c.dim("─".repeat(50)));
+  } else if (licenseKey) {
+    console.log(c.dim("Syncing scan results…"));
+    await syncResults(report, licenseKey).catch(() => {
+      console.log(c.dim("Sync skipped (offline or invalid key)."));
+    });
+  } else {
+    console.log(
+      c.dim("Automate this scan → ") +
+        c.cyan("https://curatedmcp.com/auditor#pro")
+    );
+  }
   console.log();
+}
+
+async function syncResults(
+  report: AuditReport,
+  key: string
+): Promise<void> {
+  const payload = {
+    key,
+    scannedAt: report.scannedAt,
+    totalServers: report.totalServers,
+    configFiles: report.configFiles,
+    high: report.high.map((s) => ({
+      name: s.name,
+      flags: s.flags,
+      command: s.command ?? null,
+      sourceFile: s.sourceFile,
+    })),
+    medium: report.medium.map((s) => ({
+      name: s.name,
+      flags: s.flags,
+      command: s.command ?? null,
+      sourceFile: s.sourceFile,
+    })),
+    unverified: report.unverified.map((s) => ({ name: s.name, sourceFile: s.sourceFile })),
+    verified: report.verified.map((s) => ({ name: s.name })),
+  };
+
+  const res = await fetch("https://curatedmcp.com/api/v1/auditor/sync", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(8000),
+  });
+
+  if (res.ok) {
+    const c = await getChalk();
+    console.log(c.green("  ✓ Scan synced — check your email for any new risk alerts."));
+  }
 }
 
 function printServer(
