@@ -8,6 +8,8 @@ npx @curatedmcp/auditor
 
 No installation required. Runs entirely on your machine — nothing is sent to any server except a read-only catalog lookup to check which servers are verified.
 
+**[Auditor Pro](https://curatedmcp.com/auditor#pro) ($9/month)** — automated weekly scan alerts, immediate email when a new HIGH-risk server appears, and full scan history at [curatedmcp.com/dashboard/auditor](https://curatedmcp.com/dashboard/auditor).
+
 ---
 
 ## What it does
@@ -50,8 +52,29 @@ Learn more: curatedmcp.com/certified
 |------|---------|
 | `--json` | Output raw JSON instead of formatted text |
 | `--offline` | Skip catalog lookup (catalog won't be checked for verification status) |
+| `--key <cmcp_...>` | Sync results to Auditor Pro — triggers email alert if new HIGH risks found |
 
 Exit code is `1` if any HIGH-risk servers are found, `0` otherwise. Useful in CI.
+
+### Auditor Pro sync
+
+Set your license key once and every scan syncs automatically:
+
+```bash
+# Add to ~/.zshrc or ~/.bashrc
+export CURATEDMCP_KEY=cmcp_your_key_here
+
+# Then just run as normal — results sync silently
+npx @curatedmcp/auditor
+```
+
+Or pass it inline:
+
+```bash
+npx @curatedmcp/auditor --key cmcp_your_key_here
+```
+
+Get a key at [curatedmcp.com/auditor#pro](https://curatedmcp.com/auditor#pro).
 
 ---
 
@@ -126,7 +149,7 @@ To skip the catalog lookup (e.g. in a restricted network):
 npx @curatedmcp/auditor --offline
 ```
 
-No environment variables are needed to run the auditor.
+No environment variables are needed to run the free auditor. Set `CURATEDMCP_KEY` to enable Pro sync.
 
 ---
 
