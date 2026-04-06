@@ -96,7 +96,7 @@ Exit code is `1` if any HIGH-risk servers are found, `0` otherwise. Useful in CI
 
 ```bash
 # Clone
-git clone https://github.com/curatedmcp/mcp-auditor
+git clone https://github.com/oneprofile-dev/mcp-auditor
 cd mcp-auditor
 
 # Install dependencies (chalk only + TypeScript tooling)

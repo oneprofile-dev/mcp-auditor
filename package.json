@@ -1,6 +1,7 @@
 {
   "name": "@curatedmcp/auditor",
-  "version": "1.0.0",
+  "version": "1.1.0",
+  "private": false,
   "description": "Scan your machine for MCP servers and flag security risks",
   "bin": {
     "mcp-audit": "dist/cli.js"
@@ -36,7 +37,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/curatedmcp/mcp-auditor.git"
+    "url": "git+https://github.com/oneprofile-dev/mcp-auditor.git"
   },
-  "homepage": "https://curatedmcp.com/certified"
+  "homepage": "https://curatedmcp.com/auditor"
 }
