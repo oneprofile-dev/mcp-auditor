@@ -1,6 +1,6 @@
 {
   "name": "@curatedmcp/auditor",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": false,
   "description": "Scan your machine for MCP servers and flag security risks",
   "bin": {
@@ -8,7 +8,8 @@
   },
   "main": "./dist/cli.js",
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc",
@@ -28,11 +29,19 @@
   },
   "keywords": [
     "mcp",
+    "mcp-server",
+    "mcp-security",
     "security",
+    "security-audit",
     "audit",
     "claude",
+    "claude-desktop",
     "cursor",
-    "model-context-protocol"
+    "windsurf",
+    "model-context-protocol",
+    "anthropic",
+    "ai-security",
+    "npx"
   ],
   "license": "MIT",
   "repository": {
