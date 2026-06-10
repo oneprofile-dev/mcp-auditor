@@ -2,13 +2,16 @@
 import { scanConfigs } from "./scanner.js";
 import { analyzeServer } from "./risk.js";
 import { getCatalog } from "./catalog.js";
-import { printReport, printJson } from "./report.js";
+import { printReport, printJson, printShareResult, printShareHint } from "./report.js";
+import { uploadReport, confirmShare } from "./share.js";
 import type { AuditReport, AnalyzedServer } from "./types.js";
 
 async function main() {
   const args = process.argv.slice(2);
   const jsonMode = args.includes("--json");
   const noFetch = args.includes("--offline");
+  const shareFlag = args.includes("--share");
+  const noShare = args.includes("--no-share");
 
   // Load catalog (skip fetch in offline mode)
   const catalog = noFetch
@@ -42,6 +45,19 @@ async function main() {
     printJson(report);
   } else {
     await printReport(report);
+  }
+
+  // Shareable web report — opt-in. `--share` skips the prompt; in a TTY we
+  // ask; non-interactive runs (CI, pipes) never upload without --share.
+  const canShare = !noFetch && !noShare && !jsonMode && report.totalServers > 0;
+  if (canShare) {
+    const wantShare = shareFlag || (process.stdin.isTTY ? await confirmShare() : false);
+    if (wantShare) {
+      const result = await uploadReport(report);
+      await printShareResult(result);
+    } else if (!shareFlag) {
+      await printShareHint();
+    }
   }
 
   // Exit with non-zero if high risk servers found
