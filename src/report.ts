@@ -98,6 +98,34 @@ export async function printReport(report: AuditReport): Promise<void> {
   console.log();
 }
 
+export async function printShareResult(
+  result: import("./share.js").ShareResult | null
+): Promise<void> {
+  const c = await getChalk();
+  if (!result) {
+    console.log(c.dim("Could not generate the web report (offline or server unavailable)."));
+    console.log();
+    return;
+  }
+  console.log(c.bold("Shareable report") + c.dim(` — grade ${result.grade}`));
+  console.log("  " + c.cyan(result.url));
+  console.log(c.dim("  Unlisted URL — paste it in Slack or send it to your security lead."));
+  if (result.badgeUrl) {
+    console.log(c.dim(`  README badge: ${result.badgeUrl}`));
+  }
+  console.log();
+}
+
+export async function printShareHint(): Promise<void> {
+  const c = await getChalk();
+  console.log(
+    c.dim("Tip: re-run with ") +
+      c.cyan("--share") +
+      c.dim(" to get a shareable web report (server names + risk flags only).")
+  );
+  console.log();
+}
+
 async function syncResults(
   report: AuditReport,
   key: string

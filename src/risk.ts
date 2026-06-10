@@ -72,6 +72,7 @@ export function analyzeServer(
   return {
     name: server.name,
     sourceFile: server.sourceFile,
+    client: server.client,
     command: [server.command, ...(server.args ?? [])].filter(Boolean).join(" ") || undefined,
     flags,
     level,

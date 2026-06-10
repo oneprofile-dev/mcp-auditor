@@ -1,10 +1,11 @@
 {
   "name": "@curatedmcp/auditor",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": false,
   "description": "Scan your machine for MCP servers and flag security risks",
   "bin": {
-    "mcp-audit": "dist/cli.js"
+    "mcp-audit": "dist/cli.js",
+    "curatedmcp-scan": "dist/cli.js"
   },
   "main": "./dist/cli.js",
   "files": [
