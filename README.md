@@ -1,12 +1,14 @@
 # @curatedmcp/auditor
 
-Scan your machine for MCP (Model Context Protocol) servers and flag security risks. Works with Claude Desktop, Cursor, Claude Code, and Windsurf.
+[![npm](https://img.shields.io/npm/v/@curatedmcp/auditor)](https://www.npmjs.com/package/@curatedmcp/auditor) [![Listed on PickAPlugin](https://pickaplugin.com/badge/curatedmcp.svg)](https://pickaplugin.com/p/curatedmcp)
+
+Scan your machine for MCP (Model Context Protocol) servers and flag security risks. Works with Claude Code, Claude Desktop, Codex, Cursor, Windsurf, GitHub Copilot (VS Code) and Gemini CLI.
 
 ```
 npx @curatedmcp/auditor
 ```
 
-No installation required. Runs entirely on your machine — nothing is sent to any server except a read-only catalog lookup to check which servers are verified.
+No installation required. Runs entirely on your machine. Nothing is sent anywhere except a read-only catalog lookup to check which servers are verified (skip it with `--offline`). Sharing a report is opt-in with `--share`, and only server names, clients and flags are uploaded.
 
 **[Auditor Pro](https://curatedmcp.com/auditor#pro) ($9/month)** — automated weekly scan alerts, immediate email when a new HIGH-risk server appears, and full scan history at [curatedmcp.com/dashboard/auditor](https://curatedmcp.com/dashboard/auditor).
 
@@ -91,7 +93,7 @@ Get a key at [curatedmcp.com/auditor#pro](https://curatedmcp.com/auditor#pro).
 
 - **FILE_SYSTEM_ACCESS** — command includes `--allow-write`, `--allow-read`, path args, or mentions filesystem
 - **KEYCHAIN_ACCESS** — command invokes `keychain` or macOS `security` binary
-- **CREDENTIAL_IN_ENV** — env block contains a key matching `SECRET|TOKEN|PASSWORD|API_KEY|PRIVATE`
+- **CREDENTIAL_IN_ENV**: a secret is stored in the config file. Either the env block has a key matching `SECRET|TOKEN|PASSWORD|KEY|AUTH|PRIVATE`, or an HTTP header such as `Authorization` or `X-API-Key` holds a literal value. Headers that only reference an environment variable (`Bearer ${API_KEY}`) are not flagged.
 - **NETWORK_ACCESS** — command includes `--host`, `--port`, or mentions `localhost`/`http`
 - **UNVERIFIED** — not in the CuratedMCP verified server catalog
 
@@ -99,8 +101,17 @@ Get a key at [curatedmcp.com/auditor#pro](https://curatedmcp.com/auditor#pro).
 
 ## Config locations scanned
 
-| Client | macOS | Windows |
-|--------|-------|---------|
+| Client | macOS | Linux | Windows |
+|--------|-------|-------|---------|
+| Claude Code | `~/.claude.json`, `~/.claude/mcp.json`, `.mcp.json` and `.claude/mcp.json` (project) | same | same |
+| Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` | `~/.config/Claude/claude_desktop_config.json` | `%APPDATA%\Claude\claude_desktop_config.json` |
+| Codex (CLI and IDE extension) | `~/.codex/config.toml` (or `$CODEX_HOME`), `.codex/config.toml` (project) | same | same |
+| Cursor | `~/.cursor/mcp.json`, `.cursor/mcp.json` (project) | same | `%USERPROFILE%\.cursor\mcp.json` |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` | same | same |
+| GitHub Copilot (VS Code) | `~/Library/Application Support/Code/User/mcp.json`, `.vscode/mcp.json` (project) | `~/.config/Code/User/mcp.json` | `%APPDATA%\Code\User\mcp.json` |
+| Gemini CLI | `~/.gemini/settings.json` | same | same |
+
+--------|-------|---------|
 | Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` | `%APPDATA%\Claude\claude_desktop_config.json` |
 | Cursor | `~/.cursor/mcp.json` | `%APPDATA%\.cursor\mcp.json` |
 | Claude Code | `~/.claude/mcp.json` + `.claude/mcp.json` (project) | same |

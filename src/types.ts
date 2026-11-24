@@ -16,6 +16,7 @@ export type ClientLabel =
   | "Windsurf"
   | "GitHub Copilot"
   | "Gemini CLI"
+  | "Codex"
   | "Other";
 
 export interface MCPServerEntry {
@@ -24,6 +25,7 @@ export interface MCPServerEntry {
   args?: string[];
   env?: Record<string, string>;
   url?: string;           // for HTTP-type servers
+  headers?: Record<string, string>; // HTTP headers stored in the config
   type?: string;
   sourceFile: string;
   client: ClientLabel;
