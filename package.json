@@ -1,6 +1,6 @@
 {
   "name": "@curatedmcp/auditor",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": false,
   "description": "Scan your machine for MCP servers and flag security risks",
   "bin": {
@@ -38,6 +38,7 @@
     "claude",
     "claude-desktop",
     "cursor",
+    "codex",
     "windsurf",
     "model-context-protocol",
     "anthropic",

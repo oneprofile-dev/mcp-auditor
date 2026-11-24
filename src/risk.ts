@@ -2,6 +2,8 @@ import type { MCPServerEntry, RiskFlag, RiskLevel, AnalyzedServer } from "./type
 
 const CREDENTIAL_PATTERN = /SECRET|TOKEN|PASSWORD|KEY|APIKEY|API_KEY|PRIVATE|AUTH/i;
 const FILESYSTEM_ARGS = /--allow-write|--allow-read|--allow-all|\/Users|\/home|\/var|C:\\/i;
+// A header value that only points at an env var, e.g. "Bearer ${API_KEY}" or "${env:TOKEN}".
+const REFERENCE_ONLY = /^(Bearer\s+)?\$\{[^}]+\}$/i;
 const KEYCHAIN_CMDS = /keychain|security\s+find|secret-tool|kwallet/i;
 const NETWORK_CMDS = /curl|wget|fetch|http/i;
 
@@ -35,12 +37,15 @@ export function analyzeServer(
     flags.push("KEYCHAIN_ACCESS");
   }
 
-  // Credentials in env block
-  if (server.env) {
-    const envKeys = Object.keys(server.env).join(" ");
-    if (CREDENTIAL_PATTERN.test(envKeys)) {
-      flags.push("CREDENTIAL_IN_ENV");
-    }
+  // Credentials stored in the config: an env block with secret-looking keys,
+  // or an HTTP header (Authorization, X-API-Key...) holding a literal value
+  // rather than a reference like ${VAR} or env:VAR.
+  const envHasSecret = server.env != null && CREDENTIAL_PATTERN.test(Object.keys(server.env).join(" "));
+  const headerHasSecret = Object.entries(server.headers ?? {}).some(
+    ([k, v]) => CREDENTIAL_PATTERN.test(k) && v.trim() !== "" && !REFERENCE_ONLY.test(v.trim())
+  );
+  if (envHasSecret || headerHasSecret) {
+    flags.push("CREDENTIAL_IN_ENV");
   }
 
   // Network access (non-npx commands that fetch data)

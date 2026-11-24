@@ -13,7 +13,7 @@ const REPORT_URL =
   process.env.CURATEDMCP_REPORT_URL ?? "https://www.curatedmcp.com/api/v1/audit/report";
 
 // Keep in sync with package.json — npx does not reliably set npm_package_version.
-const CLI_VERSION = "1.3.0";
+const CLI_VERSION = "1.4.0";
 
 export interface ShareResult {
   url: string;

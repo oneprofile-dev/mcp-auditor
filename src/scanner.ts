@@ -2,17 +2,21 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import type { ClientLabel, MCPServerEntry } from "./types.js";
+import { parseCodexToml } from "./toml.js";
 
 interface ConfigFile {
   filePath: string;
   servers: MCPServerEntry[];
 }
 
+// "claude-code" = ~/.claude.json, which nests servers globally AND per-project.
+// "codex-toml"  = Codex config.toml, servers under [mcp_servers.<name>].
+type ConfigFormat = "claude-code" | "codex-toml";
+
 interface ConfigLocation {
   filePath: string;
   client: ClientLabel;
-  // "claude-code" = ~/.claude.json, which nests servers globally AND per-project
-  format?: "claude-code";
+  format?: ConfigFormat;
 }
 
 // All known MCP config locations, keyed by platform
@@ -20,49 +24,65 @@ function getConfigLocations(): ConfigLocation[] {
   const home = os.homedir();
   const platform = process.platform;
   const appdata = process.env.APPDATA ?? "";
+  const xdg = process.env.XDG_CONFIG_HOME ?? path.join(home, ".config");
+  const codexHome = process.env.CODEX_HOME ?? path.join(home, ".codex");
 
+  // Same on every platform (home-relative or project-relative)
   const locations: ConfigLocation[] = [
-    // Claude Code — legacy user-level location
+    // Claude Code: legacy user-level and project-level locations
     { filePath: path.join(home, ".claude", "mcp.json"), client: "Claude Code" },
-    // Claude Code — legacy project-level (current working directory)
     { filePath: path.join(process.cwd(), ".claude", "mcp.json"), client: "Claude Code" },
-    // Claude Code — current user-level config (global + per-project servers)
+    // Claude Code: current user-level config (global + per-project servers)
     { filePath: path.join(home, ".claude.json"), client: "Claude Code", format: "claude-code" },
-    // Claude Code — project-shared config (checked into repos)
+    // Claude Code: project-shared config (checked into repos)
     { filePath: path.join(process.cwd(), ".mcp.json"), client: "Claude Code" },
-    // VS Code / GitHub Copilot — project-level
+    // VS Code / GitHub Copilot: project-level
     { filePath: path.join(process.cwd(), ".vscode", "mcp.json"), client: "GitHub Copilot" },
     // Gemini CLI
     { filePath: path.join(home, ".gemini", "settings.json"), client: "Gemini CLI" },
+    // Cursor uses ~/.cursor on every OS (%USERPROFILE%\.cursor on Windows)
+    { filePath: path.join(home, ".cursor", "mcp.json"), client: "Cursor" },
+    { filePath: path.join(process.cwd(), ".cursor", "mcp.json"), client: "Cursor" },
+    // Windsurf
+    { filePath: path.join(home, ".codeium", "windsurf", "mcp_config.json"), client: "Windsurf" },
+    // OpenAI Codex CLI and IDE extension: TOML, user-level and project-level
+    { filePath: path.join(codexHome, "config.toml"), client: "Codex", format: "codex-toml" },
+    { filePath: path.join(process.cwd(), ".codex", "config.toml"), client: "Codex", format: "codex-toml" },
   ];
 
-  if (platform === "darwin" || platform === "linux") {
+  if (platform === "darwin") {
     locations.push(
-      // Claude Desktop (macOS)
       { filePath: path.join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json"), client: "Claude Desktop" },
-      // Cursor (macOS/Linux)
-      { filePath: path.join(home, ".cursor", "mcp.json"), client: "Cursor" },
-      // Windsurf (macOS/Linux)
-      { filePath: path.join(home, ".codeium", "windsurf", "mcp_config.json"), client: "Windsurf" },
-      // VS Code / GitHub Copilot — user-level (macOS)
       { filePath: path.join(home, "Library", "Application Support", "Code", "User", "mcp.json"), client: "GitHub Copilot" },
+    );
+  }
+
+  if (platform === "linux") {
+    locations.push(
+      { filePath: path.join(xdg, "Claude", "claude_desktop_config.json"), client: "Claude Desktop" },
+      { filePath: path.join(xdg, "Code", "User", "mcp.json"), client: "GitHub Copilot" },
     );
   }
 
   if (platform === "win32") {
     locations.push(
-      // Claude Desktop (Windows)
       { filePath: path.join(appdata, "Claude", "claude_desktop_config.json"), client: "Claude Desktop" },
-      // Cursor (Windows)
-      { filePath: path.join(appdata, ".cursor", "mcp.json"), client: "Cursor" },
-      // Windsurf (Windows)
-      { filePath: path.join(appdata, "Codeium", "Windsurf", "mcp_config.json"), client: "Windsurf" },
-      // VS Code / GitHub Copilot — user-level (Windows)
       { filePath: path.join(appdata, "Code", "User", "mcp.json"), client: "GitHub Copilot" },
     );
   }
 
-  return locations;
+  // The same file can appear twice (e.g. cwd is the home directory)
+  const seen = new Set<string>();
+  return locations.filter((l) => !seen.has(l.filePath) && seen.add(l.filePath));
+}
+
+function stringRecord(v: unknown): Record<string, string> | undefined {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
+  const out: Record<string, string> = {};
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    if (typeof val === "string") out[k] = val;
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 function entriesFrom(
@@ -80,6 +100,7 @@ function entriesFrom(
           ? (d.env as Record<string, string>)
           : undefined,
         url: typeof d.url === "string" ? d.url : undefined,
+        headers: stringRecord(d.headers ?? d.http_headers),
         type: typeof d.type === "string" ? d.type : undefined,
         sourceFile: filePath,
         client,
@@ -90,10 +111,11 @@ function entriesFrom(
 function parseConfig(
   filePath: string,
   client: ClientLabel,
-  format?: "claude-code"
+  format?: ConfigFormat
 ): MCPServerEntry[] {
   try {
     const raw = fs.readFileSync(filePath, "utf-8");
+    if (format === "codex-toml") return entriesFrom(parseCodexToml(raw), filePath, client);
     const json = JSON.parse(raw);
 
     if (format === "claude-code") {
