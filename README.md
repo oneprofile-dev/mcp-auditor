@@ -184,12 +184,14 @@ npm org ls curatedmcp
 # 1. Bump version in package.json
 npm version patch   # or minor / major
 
-# 2. Build fresh
-npm run build
+# 2. Set the same version in CLI_VERSION in src/share.ts
 
-# 3. Publish (public scoped package)
+# 3. Publish from main (public scoped package). prepublishOnly rebuilds dist/ first,
+#    so a stale build can never ship under a new version number.
 npm publish --access public
 ```
+
+Publishing needs the `curatedmcp` npm account with two-factor authentication (or a granular token with publish rights).
 
 The package is published as `@curatedmcp/auditor`. After publishing, `npx @curatedmcp/auditor` will pick up the new version within a few minutes.
 
