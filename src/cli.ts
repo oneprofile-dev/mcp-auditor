@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { scanConfigs } from "./scanner.js";
 import { analyzeServer } from "./risk.js";
-import { getCatalog } from "./catalog.js";
+import { getCatalog, EMPTY_CATALOG } from "./catalog.js";
 import { printReport, printJson, printShareResult, printShareHint } from "./report.js";
 import { uploadReport, confirmShare } from "./share.js";
 import type { AuditReport, AnalyzedServer } from "./types.js";
@@ -14,9 +14,7 @@ async function main() {
   const noShare = args.includes("--no-share");
 
   // Load catalog (skip fetch in offline mode)
-  const catalog = noFetch
-    ? { slugs: new Set<string>(), npm: new Set<string>() }
-    : await getCatalog();
+  const catalog = noFetch ? EMPTY_CATALOG : await getCatalog();
 
   // Scan all config files
   const configFiles = scanConfigs();
@@ -27,7 +25,7 @@ async function main() {
   for (const { filePath, servers } of configFiles) {
     if (servers.length > 0) foundFiles.push(filePath);
     for (const server of servers) {
-      allServers.push(analyzeServer(server, catalog.slugs, catalog.npm));
+      allServers.push(analyzeServer(server, catalog));
     }
   }
 
@@ -38,13 +36,14 @@ async function main() {
     high:       allServers.filter((s) => s.level === "HIGH"),
     medium:     allServers.filter((s) => s.level === "MEDIUM"),
     verified:   allServers.filter((s) => s.level === "VERIFIED"),
+    listed:     allServers.filter((s) => s.level === "LISTED"),
     unverified: allServers.filter((s) => s.level === "LOW"),
   };
 
   if (jsonMode) {
     printJson(report);
   } else {
-    await printReport(report);
+    await printReport(report, { offline: noFetch });
   }
 
   // Shareable web report — opt-in. `--share` skips the prompt; in a TTY we
