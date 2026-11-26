@@ -1,4 +1,5 @@
 import type { AuditReport, AnalyzedServer } from "./types.js";
+import { KNOWN_BAD_UPDATED } from "./endpoints.js";
 
 // Chalk is ESM-only in v5, we import dynamically
 let chalk: typeof import("chalk").default;
@@ -16,13 +17,15 @@ const FLAG_LABELS: Record<string, string> = {
   KEYCHAIN_ACCESS:    "KEYCHAIN_ACCESS",
   CREDENTIAL_IN_ENV:  "CREDENTIAL_IN_ENV",
   NETWORK_ACCESS:     "NETWORK_ACCESS",
-  UNVERIFIED:         "UNVERIFIED",
+  KNOWN_BAD:          "KNOWN_BAD",
+  RISKY_ENDPOINT:     "RISKY_ENDPOINT",
+  UNVERIFIED:         "NOT_IN_CATALOG",
 };
 
-export async function printReport(report: AuditReport): Promise<void> {
+export async function printReport(report: AuditReport, opts: { offline?: boolean } = {}): Promise<void> {
   const c = await getChalk();
 
-  console.log("\n" + c.bold("MCP Security Audit") + c.dim(` — ${report.scannedAt}`));
+  console.log("\n" + c.bold("MCP Security Audit") + c.dim(`, ${report.scannedAt}`));
   console.log(c.dim("━".repeat(50)));
   console.log();
 
@@ -56,7 +59,7 @@ export async function printReport(report: AuditReport): Promise<void> {
   }
 
   if (report.unverified.length > 0) {
-    console.log(c.dim(`UNVERIFIED (${report.unverified.length}) — not in the CuratedMCP catalog`));
+    console.log(c.dim(`NOT IN CATALOG (${report.unverified.length}): no risk flags, not reviewed by CuratedMCP`));
     for (const s of report.unverified) {
       console.log(c.dim(`  ? ${s.name}`));
       console.log(c.dim(`    ${s.sourceFile}`));
@@ -64,12 +67,24 @@ export async function printReport(report: AuditReport): Promise<void> {
     console.log();
   }
 
+  if (report.listed.length > 0) {
+    console.log(c.cyan(`LISTED (${report.listed.length}): in the CuratedMCP catalog, not yet Verified`));
+    console.log(c.dim(`  ${report.listed.map((s) => s.name).join(", ")}`));
+    console.log();
+  }
+
   if (report.verified.length > 0) {
-    console.log(c.green(`VERIFIED (${report.verified.length})`));
+    console.log(c.green(`VERIFIED (${report.verified.length}): passed a human Verified Review`));
     const names = report.verified.map((s) => s.name).join(", ");
     console.log(c.dim(`  ✓ ${names}`));
     console.log();
   }
+
+  console.log(
+    c.dim(`Known-bad list updated ${KNOWN_BAD_UPDATED}. Matching is by package or endpoint, never by the name in your config.`)
+  );
+  if (opts.offline) console.log(c.dim("Offline: catalog not checked, so nothing can show as Listed or Verified."));
+  console.log();
 
   // Upgrade prompt — shown when HIGH risks exist and no key configured
   const licenseKey = process.env.CURATEDMCP_KEY ?? process.env.MCP_AUDITOR_KEY;
@@ -77,7 +92,7 @@ export async function printReport(report: AuditReport): Promise<void> {
     console.log(c.dim("─".repeat(50)));
     console.log(
       c.yellow.bold("  ⚡ Auditor Pro") +
-        c.dim(" — get weekly email alerts for new risks")
+        c.dim(": weekly scans, an email when a new HIGH risk or known-bad server appears")
     );
     console.log(
       c.dim("  Set up automated monitoring: ") +
@@ -107,9 +122,9 @@ export async function printShareResult(
     console.log();
     return;
   }
-  console.log(c.bold("Shareable report") + c.dim(` — grade ${result.grade}`));
+  console.log(c.bold("Shareable report") + c.dim(`: grade ${result.grade}`));
   console.log("  " + c.cyan(result.url));
-  console.log(c.dim("  Unlisted URL — paste it in Slack or send it to your security lead."));
+  console.log(c.dim("  Unlisted URL: paste it in Slack or send it to your security lead."));
   if (result.badgeUrl) {
     console.log(c.dim(`  README badge: ${result.badgeUrl}`));
   }
@@ -149,6 +164,7 @@ async function syncResults(
     })),
     unverified: report.unverified.map((s) => ({ name: s.name, sourceFile: s.sourceFile })),
     verified: report.verified.map((s) => ({ name: s.name })),
+    listed: report.listed.map((s) => ({ name: s.name })),
   };
 
   const res = await fetch("https://curatedmcp.com/api/v1/auditor/sync", {
@@ -160,7 +176,7 @@ async function syncResults(
 
   if (res.ok) {
     const c = await getChalk();
-    console.log(c.green("  ✓ Scan synced — check your email for any new risk alerts."));
+    console.log(c.green("  ✓ Scan synced. Check your email for any new risk alerts."));
   }
 }
 
@@ -170,9 +186,14 @@ function printServer(
   color: "red" | "yellow"
 ): void {
   const flagStr = s.flags.map((f) => FLAG_LABELS[f]).join(", ");
-  console.log(c[color](`  ⚠ ${s.name}`) + c.dim(` — ${flagStr}`));
+  console.log(c[color](`  ⚠ ${s.name}`) + c.dim(`: ${flagStr}`));
   console.log(c.dim(`    ${s.sourceFile}`));
   if (s.command) console.log(c.dim(`    ${s.command}`));
+  for (const f of s.findings ?? []) {
+    const label = f.kind === "KNOWN_BAD" ? c.red.bold("    KNOWN BAD ") : c.yellow("    risky endpoint ");
+    console.log(label + c.dim(`${f.url}`));
+    console.log(c.dim(`      ${f.reason}`));
+  }
 }
 
 export function printJson(report: AuditReport): void {

@@ -2,49 +2,54 @@
 
 [![npm](https://img.shields.io/npm/v/@curatedmcp/auditor)](https://www.npmjs.com/package/@curatedmcp/auditor) [![Listed on PickAPlugin](https://pickaplugin.com/badge/curatedmcp.svg)](https://pickaplugin.com/p/curatedmcp)
 
-Scan your machine for MCP (Model Context Protocol) servers and flag security risks. Works with Claude Code, Claude Desktop, Codex, Cursor, Windsurf, GitHub Copilot (VS Code) and Gemini CLI.
+Find every MCP (Model Context Protocol) server on your machine and flag the risky and known-bad ones. Works with Claude Code, Claude Desktop, Codex, Cursor, Windsurf, GitHub Copilot (VS Code) and Gemini CLI.
 
 ```
 npx @curatedmcp/auditor
 ```
 
-No installation required. Runs entirely on your machine. Nothing is sent anywhere except a read-only catalog lookup to check which servers are verified (skip it with `--offline`). Sharing a report is opt-in with `--share`, and only server names, clients and flags are uploaded.
+- **Fully local.** No account, no install. Your configs, commands, tool descriptions and secrets never leave the machine. The only network call is a read-only download of the CuratedMCP catalog (skip it with `--offline`).
+- **Known-bad endpoints.** Flags servers on CuratedMCP's known-bad list, starting with the remote entries we found probing tools from the official MCP registry in November 2026.
+- **Risky addresses, offline.** Cloud metadata addresses, wildcard-DNS hosts like `127.0.0.1.nip.io`, anonymous tunnels (ngrok, pinggy, trycloudflare), raw public IPs, and plain `http://` to remote hosts. Also checks URLs passed to `mcp-remote` and similar bridges.
+- **Secrets in config files.** API keys in `env` blocks or pasted into HTTP headers.
+- **Honest labels.** VERIFIED means a human Verified Review was done. LISTED means the server is in the CuratedMCP catalog. Matching is by npm or PyPI package or remote endpoint, never by the name you gave the server in your config.
 
-**[Auditor Pro](https://curatedmcp.com/auditor#pro) ($9/month)** — automated weekly scan alerts, immediate email when a new HIGH-risk server appears, and full scan history at [curatedmcp.com/dashboard/auditor](https://curatedmcp.com/dashboard/auditor).
+Sharing a report is opt-in with `--share`; only server names, clients and flags are uploaded.
+
+**[Auditor Pro](https://curatedmcp.com/auditor#pro) ($9/month):** weekly scans, an email when a new HIGH-risk or known-bad server appears on your machine, and scan history at [curatedmcp.com/dashboard/auditor](https://curatedmcp.com/dashboard/auditor).
 
 ---
 
-## What it does
-
-Finds every MCP server configured on your machine, then reports:
-
-- **HIGH / MEDIUM / LOW** risk flags with explanations
-- Which servers are **VERIFIED** in the CuratedMCP catalog vs unknown
-- Credentials accidentally embedded in environment blocks
-- Filesystem access or keychain access granted to unverified tools
-
-Example output:
+## Example output
 
 ```
-MCP Security Audit — 2026-03-31
+MCP Security Audit, 11/26/2026
 
-Found 4 config files. 12 servers detected.
+Found 3 config files. 7 servers detected.
 
 HIGH RISK (2)
-  ⚠ filesystem-mcp — UNVERIFIED, FILE_SYSTEM_ACCESS
-    ~/.cursor/mcp.json — npx filesystem-mcp --allow-write /Users
+  ⚠ helper: KNOWN_BAD, RISKY_ENDPOINT, NOT_IN_CATALOG
+    ~/.cursor/mcp.json
+    KNOWN BAD https://ngtpl-216-175-194-204.free.pinggy.net/m30/mcp
+      Tunnel endpoint published by a registry account that also published cloud-metadata and internal-address entries. Source: Official MCP registry, io.github.zz959397ghb entries (reported Nov 24, 2026).
 
-  ⚠ unknown-tool — UNVERIFIED, CREDENTIAL_IN_ENV
+  ⚠ search: CREDENTIAL_IN_ENV, NOT_IN_CATALOG
     ~/Library/Application Support/Claude/claude_desktop_config.json
+    npx -y some-search-mcp
 
-VERIFIED (8)
-  ✓ stripe-mcp
-  ✓ github-mcp
-  ✓ notion-mcp
-  ...
+NOT IN CATALOG (1): no risk flags, not reviewed by CuratedMCP
+  ? my-local-tool
 
-Learn more: curatedmcp.com/certified
+LISTED (3): in the CuratedMCP catalog, not yet Verified
+  github, linear, notion
+
+VERIFIED (1): passed a human Verified Review
+  ✓ botsrated
+
+Known-bad list updated 2026-11-26. Matching is by package or endpoint, never by the name in your config.
 ```
+
+Exit code is `1` if any HIGH-risk server is found, so it works as a CI gate.
 
 ---
 
@@ -54,7 +59,7 @@ Learn more: curatedmcp.com/certified
 |------|---------|
 | `--json` | Output raw JSON instead of formatted text |
 | `--offline` | Skip catalog lookup (catalog won't be checked for verification status) |
-| `--key <cmcp_...>` | Sync results to Auditor Pro — triggers email alert if new HIGH risks found |
+| `--key <cmcp_...>` | Sync results to Auditor Pro: email alert if new HIGH risks are found |
 
 Exit code is `1` if any HIGH-risk servers are found, `0` otherwise. Useful in CI.
 
@@ -66,7 +71,7 @@ Set your license key once and every scan syncs automatically:
 # Add to ~/.zshrc or ~/.bashrc
 export CURATEDMCP_KEY=cmcp_your_key_here
 
-# Then just run as normal — results sync silently
+# Then just run as normal; results sync silently
 npx @curatedmcp/auditor
 ```
 
@@ -82,20 +87,23 @@ Get a key at [curatedmcp.com/auditor#pro](https://curatedmcp.com/auditor#pro).
 
 ## Risk levels
 
-| Level | Triggers |
-|-------|----------|
-| HIGH | Unverified + has FILE_SYSTEM_ACCESS or KEYCHAIN_ACCESS, or has CREDENTIAL_IN_ENV |
-| MEDIUM | Unverified + has NETWORK_ACCESS |
-| LOW | Unverified, no specific risk flags |
-| VERIFIED | Found in the CuratedMCP verified catalog |
+| Level | Meaning |
+|-------|---------|
+| HIGH | On the known-bad list, or not in the catalog and has any risk flag |
+| MEDIUM | In the catalog, but has a risk flag (for example a secret in its config) |
+| LOW | Not in the catalog, no risk flags |
+| LISTED | In the CuratedMCP catalog, not yet Verified |
+| VERIFIED | Passed a human CuratedMCP Verified Review |
 
 ### Risk flags
 
-- **FILE_SYSTEM_ACCESS** — command includes `--allow-write`, `--allow-read`, path args, or mentions filesystem
-- **KEYCHAIN_ACCESS** — command invokes `keychain` or macOS `security` binary
+- **KNOWN_BAD**: the endpoint or registry name is on CuratedMCP's known-bad list.
+- **RISKY_ENDPOINT**: cloud metadata address, wildcard-DNS host, anonymous tunnel, raw public IP, plain http to a remote host, or credentials in the URL. Localhost and private addresses are not flagged.
+- **FILE_SYSTEM_ACCESS**: command includes `--allow-write`, `--allow-read` or home/system paths.
+- **KEYCHAIN_ACCESS**: command invokes `keychain`, macOS `security`, `secret-tool` or `kwallet`.
 - **CREDENTIAL_IN_ENV**: a secret is stored in the config file. Either the env block has a key matching `SECRET|TOKEN|PASSWORD|KEY|AUTH|PRIVATE`, or an HTTP header such as `Authorization` or `X-API-Key` holds a literal value. Headers that only reference an environment variable (`Bearer ${API_KEY}`) are not flagged.
-- **NETWORK_ACCESS** — command includes `--host`, `--port`, or mentions `localhost`/`http`
-- **UNVERIFIED** — not in the CuratedMCP verified server catalog
+- **NETWORK_ACCESS**: a non-npx command that mentions `curl`, `wget`, `fetch` or `http`.
+- **NOT_IN_CATALOG** (`UNVERIFIED` in JSON output): no CuratedMCP listing matches its package or endpoint.
 
 ---
 
@@ -226,10 +234,11 @@ npm run dev -- --offline
 
 ```
 src/
-  cli.ts        Entry point — argument parsing, orchestration, exit code
+  cli.ts        Entry point: argument parsing, orchestration, exit code
   scanner.ts    Platform-aware config file discovery (macOS + Windows)
-  risk.ts       Heuristic risk scoring — returns RiskFlag[] per server
-  catalog.ts    Fetches + caches verified list from curatedmcp.com/api/catalog
+  risk.ts       Risk scoring and catalog matching (by package or endpoint)
+  catalog.ts    Fetches + caches the catalog (listed + verified) from curatedmcp.com/api/catalog
+  endpoints.ts  Known-bad list and offline checks for risky remote addresses
   report.ts     Chalk terminal output + --json mode
   types.ts      Shared types: RiskFlag, RiskLevel, MCPServerEntry, AuditReport
 ```
@@ -240,6 +249,6 @@ src/
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
 
 Questions? [curatedmcp.com/contact](https://curatedmcp.com/contact)

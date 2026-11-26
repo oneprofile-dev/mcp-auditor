@@ -13,7 +13,7 @@ const REPORT_URL =
   process.env.CURATEDMCP_REPORT_URL ?? "https://www.curatedmcp.com/api/v1/audit/report";
 
 // Keep in sync with package.json — npx does not reliably set npm_package_version.
-const CLI_VERSION = "1.4.0";
+const CLI_VERSION = "1.5.0";
 
 export interface ShareResult {
   url: string;
@@ -31,11 +31,22 @@ function sanitize(s: AnalyzedServer) {
   };
 }
 
+// Report servers before 1.5 only know these values; used as a fallback if the
+// site rejects the newer ones, so --share keeps working during a rollout.
+const LEGACY_FLAGS = new Set(["FILE_SYSTEM_ACCESS", "KEYCHAIN_ACCESS", "CREDENTIAL_IN_ENV", "NETWORK_ACCESS", "UNVERIFIED"]);
+function legacy(s: ReturnType<typeof sanitize>) {
+  const flags = s.flags.flatMap((f) =>
+    LEGACY_FLAGS.has(f) ? [f] : f === "KNOWN_BAD" || f === "RISKY_ENDPOINT" ? ["NETWORK_ACCESS" as const] : []
+  );
+  return { ...s, flags: [...new Set(flags)], level: s.level === "LISTED" ? "LOW" : s.level };
+}
+
 export async function uploadReport(report: AuditReport): Promise<ShareResult | null> {
   const servers = [
     ...report.high,
     ...report.medium,
     ...report.unverified,
+    ...report.listed,
     ...report.verified,
   ].map(sanitize);
 
@@ -45,13 +56,17 @@ export async function uploadReport(report: AuditReport): Promise<ShareResult | n
     servers,
   };
 
-  try {
-    const res = await fetch(REPORT_URL, {
+  const post = (body: unknown) =>
+    fetch(REPORT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(8000),
     });
+
+  try {
+    let res = await post(payload);
+    if (res.status === 400) res = await post({ ...payload, servers: servers.map(legacy) });
     if (!res.ok) return null;
     const json = (await res.json()) as { url?: string; badgeUrl?: string; grade?: string };
     if (!json.url) return null;
@@ -66,7 +81,7 @@ export function confirmShare(): Promise<boolean> {
   return new Promise((resolve) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     rl.question(
-      "\nGenerate a shareable web report? Uploads server names + risk flags only — never commands, env values, or paths. (y/N) ",
+      "\nGenerate a shareable web report? Uploads server names + risk flags only, never commands, env values, or paths. (y/N) ",
       (answer) => {
         rl.close();
         resolve(/^y(es)?$/i.test(answer.trim()));
